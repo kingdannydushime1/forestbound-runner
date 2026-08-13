@@ -1,0 +1,2 @@
+canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+#game canvas { margin: 0 auto; }
