@@ -16,7 +16,7 @@
 
 The Vite config uses `base: "./"`; the GitHub Actions workflow builds and uploads `dist/` with the Pages artifact action.
 
-Expected URL: `https://kingdannydushime1.github.io/path-drawer/`
+Expected URL: `https://kingdannydushime1.github.io/forestbound-runner/`
 
 ## Delivery contents
 

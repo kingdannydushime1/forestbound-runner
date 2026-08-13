@@ -39,7 +39,7 @@ npm run dev
 
 The relative Vite base and `.github/workflows/deploy.yml` publish `dist/` from `main`:
 
-`https://kingdannydushime1.github.io/path-drawer/`
+`https://kingdannydushime1.github.io/forestbound-runner/`
 
 ## New selected sources
 
