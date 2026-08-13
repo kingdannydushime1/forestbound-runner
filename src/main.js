@@ -7,8 +7,10 @@ import { PauseScene } from "./game/scenes/PauseScene.js";
 import { EndScene } from "./game/scenes/EndScene.js";
 import "./styles.css";
 
+const captureMode = new URLSearchParams(window.location.search).has("capture");
+
 const config = {
-  type: Phaser.AUTO,
+  type: captureMode ? Phaser.CANVAS : Phaser.AUTO,
   parent: "game",
   width: WORLD.width,
   height: WORLD.height,
@@ -21,4 +23,4 @@ const config = {
   scene: [BootScene, MenuScene, GameScene, PauseScene, EndScene],
 };
 
-new Phaser.Game(config);
+window.__forestboundGame = new Phaser.Game(config);
