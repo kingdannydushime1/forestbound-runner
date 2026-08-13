@@ -1,4 +1,4 @@
-name: Deploy Forestbound Runner
+name: Deploy Path Drawer
 
 on:
   push:

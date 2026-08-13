@@ -1,302 +1,317 @@
 import Phaser from "phaser";
-import { WORLD, chapterFor, chooseObjective, calculateReward, formatDistance } from "../data.js";
+import { WORLD, levelFor, pathLength, calculateReward, scoreFor } from "../data.js";
 import { storage } from "../storage.js";
 import { layout } from "../layout.js";
 import { AudioService } from "../audio.js";
-import { button, label, progressBar } from "../ui.js";
+import { button, label, panel, progressBar } from "../ui.js";
+
+const DRAW_COLOR = 0xf4e6b5;
+const DRAW_SHADOW = 0x17152b;
 
 export class GameScene extends Phaser.Scene {
   constructor() { super("GameScene"); }
 
   init(data) {
-    this.chapterId = data.chapter || storage.getUnlockedChapter();
-    this.runNumber = storage.nextRun();
-    this.chapter = chapterFor(this.chapterId);
-    this.objective = chooseObjective(this.chapterId, this.runNumber);
+    this.levelId = data.level || data.resume?.level || storage.getUnlockedLevel();
+    this.level = levelFor(this.levelId);
+    this.resumeData = data.resume || null;
+    this.revived = Boolean(data.revived);
   }
 
   create() {
-    this.registry.set("activeChapter", this.chapterId);
+    this.registry.set("activeLevel", this.levelId);
     this.audio = new AudioService(this);
     this.audio.startMusic();
-    this.obstacles = [];
-    this.coins = [];
-    this.decor = [];
-    this.metrics = { distance: 0, coins: 0, dodges: 0, perfectJumps: 0, collision: false };
-    this.speed = this.chapter.speed;
-    this.spawnClock = 650;
-    this.spawnIndex = 0;
-    this.elapsed = 0;
     this.ended = false;
-    this.wasAirborne = false;
-    this.airHopAvailable = false;
-    this.jumpIsPerfect = false;
+    this.drawing = false;
+    this.simulating = false;
+    this.pathPoints = [];
+    this.routeIndex = 0;
+    this.obstacles = [];
+    this.gems = [];
+    this.metrics = { pathLength: 0, gems: 0, clean: true, collision: false, collectedGems: [] };
+    if (this.resumeData?.metrics) this.metrics = { ...this.metrics, ...this.resumeData.metrics };
+    this.lastSafePosition = { x: this.resumeData?.x || WORLD.start.x, y: this.resumeData?.y || WORLD.start.y };
     this.drawWorld();
     this.createAnimations();
-    this.createPlayer();
+    this.createBoard();
     this.createHud();
     this.setupInput();
-    this.spawnPattern(0);
+    if (this.revived) this.showHint("REVIVE READY — DRAW A NEW ROUTE", "#75e5d2");
   }
 
   drawWorld() {
-    this.background = this.add.image(640, 360, "forestBg").setDisplaySize(1280, 720).setTint(this.chapter.tint).setDepth(0);
-    this.treeLayer = this.add.tileSprite(640, 395, 1280, 500, "treeBg").setTileScale(1.43).setAlpha(0.77).setDepth(1);
-    this.add.rectangle(640, 360, 1280, 720, 0x101827, 0.13).setDepth(2);
-    for (const [x, y] of [[430, 170], [700, 250], [1010, 140], [1170, 300]]) {
-      const firefly = this.add.sprite(x, y, "coin", 2).setScale(0.8).setAlpha(0.45).setDepth(3);
-      this.tweens.add({ targets: firefly, y: y - 18, alpha: { from: 0.25, to: 0.8 }, duration: 1200 + (x % 3) * 280, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-      this.decor.push(firefly);
-    }
-    this.groundArt = this.add.tileSprite(640, 654, 1280, 96, "platforms").setTileScale(2, 1.5).setDepth(5);
-    this.groundArt.setTint(0xffffff);
-    this.groundBody = this.add.rectangle(640, WORLD.groundY + 36, 1280, 48, 0x000000, 0).setVisible(false);
-    this.physics.add.existing(this.groundBody, true);
-    this.add.rectangle(640, 592, 1280, 6, 0x9bc268, 0.32).setDepth(6);
+    this.add.tileSprite(640, 380, 1280, 480, "ground", 0).setTileScale(1.7).setDepth(0);
+    this.add.rectangle(640, 382, 1280, 480, 0x2b2752, 0.11).setDepth(1);
+    this.add.tileSprite(640, 652, 1280, 70, "ground", 1).setTileScale(1.7).setTint(0x54734b).setDepth(5);
+    this.treeLayer = this.add.tileSprite(640, 340, 1280, 390, "details", 0).setTileScale(1.5).setAlpha(0.32).setDepth(2);
+    const decor = [[215, 215, "trees", 0], [445, 570, "bushes", 0], [640, 190, "trees", 1], [890, 570, "bushes", 1], [1080, 260, "details", 1], [1000, 560, "trees", 2]];
+    for (const [x, y, key, frame] of decor) this.add.sprite(x, y, key, frame).setScale(2.2).setAlpha(0.82).setDepth(3);
   }
 
   createAnimations() {
-    if (!this.anims.exists("knightRun")) {
-      // The source sheet is 8×8, but cells 6–7 in row 0 are empty padding.
-      // Keep the animation on the four verified non-empty running cells.
-      this.anims.create({ key: "knightRun", frames: this.anims.generateFrameNumbers("knight", { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
-      this.anims.create({ key: "knightJump", frames: [{ key: "knight", frame: 16 }, { key: "knight", frame: 17 }], frameRate: 6, repeat: -1 });
-      this.anims.create({ key: "slimeIdle", frames: this.anims.generateFrameNumbers("slime", { start: 0, end: 2 }), frameRate: 5, repeat: -1 });
-      this.anims.create({ key: "coinSpin", frames: this.anims.generateFrameNumbers("coin", { start: 0, end: 11 }), frameRate: 14, repeat: -1 });
+    if (!this.anims.exists("playerIdle")) {
+      this.anims.create({ key: "playerIdle", frames: this.anims.generateFrameNumbers("playerIdle", { start: 0, end: 8 }), frameRate: 5, repeat: -1 });
+      this.anims.create({ key: "playerWalk", frames: this.anims.generateFrameNumbers("playerWalk", { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: "vfxExplosion", frames: this.anims.generateFrameNumbers("vfxExplosion", { start: 0, end: 10 }), frameRate: 18, repeat: 0 });
+      this.anims.create({ key: "vfxImpact", frames: this.anims.generateFrameNumbers("vfxImpact", { start: 0, end: 6 }), frameRate: 16, repeat: 0 });
     }
   }
 
-  createPlayer() {
-    this.player = this.physics.add.sprite(WORLD.playerX, WORLD.groundY - 48, "knight", 0).setScale(1.9).setDepth(12);
-    this.player.body.setSize(18, 27).setOffset(7, 5);
-    this.player.body.setGravityY(2050);
-    this.player.play("knightRun");
-    this.physics.add.collider(this.player, this.groundBody);
+  createBoard() {
+    this.pathShadow = this.add.graphics().setDepth(7);
+    this.pathGraphic = this.add.graphics().setDepth(8);
+    this.playerShadow = this.add.image(this.lastSafePosition.x, this.lastSafePosition.y + 15, "playerShadow").setScale(1.8).setDepth(12);
+    this.player = this.physics.add.sprite(this.lastSafePosition.x, this.lastSafePosition.y, "playerIdle", 0).setScale(1.8).setDepth(14);
+    this.player.body.setAllowGravity(false);
+    this.player.body.setSize(19, 20).setOffset(6, 9);
+    this.player.play("playerIdle");
+
+    this.goal = this.add.sprite(WORLD.goal.x, WORLD.goal.y, "items", 1).setScale(2.8).setDepth(12);
+    this.goalRing = this.add.graphics().setDepth(11);
+    label(this, WORLD.goal.x, WORLD.goal.y + 47, "EXIT", 14, "#75e5d2");
+
+    for (const obstacleData of [...this.level.obstacles, ...(this.level.sentinels || [])]) this.addObstacle(obstacleData);
+    for (const [index, gemData] of this.level.gems.entries()) {
+      const gem = this.physics.add.sprite(gemData.x, gemData.y, "items", index % 4).setScale(1.55).setDepth(9);
+      gem.body.setAllowGravity(false);
+      gem.collected = this.resumeData?.metrics?.collectedGems?.includes(index) || false;
+      gem.gemIndex = index;
+      if (gem.collected) { gem.setVisible(false); gem.body.enable = false; }
+      this.gems.push(gem);
+    }
+
+    this.startBadge = panel(this, WORLD.start.x, WORLD.start.y + 47, 190, 34, 0.9);
+    this.startBadge.setStrokeStyle(2, 0x75e5d2, 0.9);
+    label(this, WORLD.start.x, WORLD.start.y + 47, "START HERE", 13, "#f4e6b5");
+    this.redrawPath();
+  }
+
+  addObstacle(data) {
+    const key = data.kind === "root" ? "roots" : data.kind === "ruin" ? "ruins" : data.kind === "sentinel" ? "items" : "rocks";
+    const obstacle = this.physics.add.sprite(data.x, data.y, key, data.frame).setScale(data.kind === "sentinel" ? 1.7 : 2.1).setDepth(10);
+    obstacle.body.setAllowGravity(false);
+    obstacle.body.setSize(data.w * 0.7, data.h * 0.55).setOffset(5, 8);
+    obstacle.zone = { ...data, baseY: data.y };
+    obstacle.isSentinel = data.kind === "sentinel";
+    this.obstacles.push(obstacle);
+    if (obstacle.isSentinel) this.tweens.add({ targets: obstacle, angle: 360, duration: data.period, repeat: -1 });
   }
 
   createHud() {
     const l = layout(this.scale.width, this.scale.height);
-    this.add.rectangle(640, 59, 1280, 118, 0x101827, 0.73).setDepth(15);
-    this.distanceText = label(this, l.hud.left, 32, "000 m", 24, "#fff6cf", 0);
-    this.chapterText = label(this, l.hud.left, 66, `CHAPTER ${this.chapter.id} · ${this.chapter.name.toUpperCase()}`, 14, "#a9bfd1", 0);
-    this.coinText = label(this, l.hud.right - 74, 32, "0", 23, "#f4d982", 1);
-    this.add.sprite(l.hud.right - 32, 32, "coin", 3).setScale(1.8).setDepth(25);
-    this.pauseButton = button(this, l.hud.right - 34, 91, 74, 38, "II", () => this.pauseRun(), { fontSize: 18, stroke: 0x5f7a84 });
-    label(this, l.objective.x - l.objective.width / 2, 79, `${this.objective.icon}  ·  ${this.objective.title}`, 15, "#fff6cf", 0);
-    this.objectiveReadout = label(this, l.objective.x + l.objective.width / 2, 79, this.objective.readout(this.metrics), 14, "#f4d982", 1);
-    this.objectiveBar = progressBar(this, l.objective.x, 103, l.objective.width, 0, { fill: 0xe1b85a, stroke: 0x8ba75f });
-    this.hint = label(this, 640, 684, "SPACE / TAP TO JUMP", 14, "#c1d1d7");
-    this.tweens.add({ targets: this.hint, alpha: { from: 1, to: 0.35 }, duration: 800, yoyo: true, repeat: 3 });
+    this.add.rectangle(640, 61, 1280, 122, 0x17152b, 0.82).setDepth(20);
+    this.add.sprite(l.hud.left + 16, 28, "uiPanels", 0).setScale(1.3).setDepth(21);
+    label(this, l.hud.left + 42, 28, `LEVEL ${this.level.id} · ${this.level.name}`, 17, "#f4e6b5", 0);
+    label(this, l.hud.left, 57, this.level.subtitle, 13, "#c1bfd9", 0);
+    this.relicText = label(this, l.hud.right - 178, 28, `${this.metrics.gems} SHARDS`, 16, "#eab866", 1);
+    this.hint = label(this, 640, 95, "DRAW FROM START TO EXIT", 15, "#f4e6b5");
+    this.progress = progressBar(this, 640, 122, 360, 0, { fill: 0x75e5d2, stroke: 0x54734b });
+    this.pauseButton = button(this, l.hud.right - 36, 89, 72, 36, "II", () => this.pauseRun(), { fontSize: 17, stroke: 0x75e5d2 });
+    this.clearButton = button(this, l.hud.right - 126, 89, 96, 36, "CLEAR", () => this.clearPath(), { fontSize: 13, stroke: 0x75e5d2 });
   }
 
   setupInput() {
-    this.input.keyboard.on("keydown-SPACE", () => this.jump());
-    this.input.keyboard.on("keydown-UP", () => this.jump());
-    this.input.keyboard.on("keydown-W", () => this.jump());
+    this.onPointerDown = (pointer) => {
+      if (this.ended || this.simulating || pointer.y < WORLD.boardTop || pointer.y > WORLD.boardBottom) return;
+      if (Math.hypot(pointer.x - this.player.x, pointer.y - this.player.y) > 105) {
+        this.showHint("START ON THE CHARACTER", "#d85d72");
+        return;
+      }
+      this.drawing = true;
+      this.pathPoints = [{ x: this.player.x, y: this.player.y }];
+      this.addPoint(pointer);
+      this.audio.play("drawSfx", 0.32);
+    };
+    this.onPointerMove = (pointer) => { if (this.drawing) this.addPoint(pointer); };
+    this.onPointerUp = () => { if (this.drawing) this.finishDrawing(); };
+    this.input.on("pointerdown", this.onPointerDown);
+    this.input.on("pointermove", this.onPointerMove);
+    this.input.on("pointerup", this.onPointerUp);
+    this.input.keyboard.on("keydown-C", () => this.clearPath());
     this.input.keyboard.on("keydown-P", () => this.pauseRun());
     this.input.keyboard.on("keydown-ESC", () => this.pauseRun());
-    this.input.on("pointerdown", (pointer) => {
-      if (pointer.y > 145) this.jump();
-    });
   }
 
-  jump() {
-    if (this.ended || !this.player?.body) return;
-    const grounded = this.player.body.blocked.down;
-    if (grounded) {
-      this.player.setVelocityY(-780);
-      this.wasAirborne = true;
-      this.airHopAvailable = true;
-      this.jumpIsPerfect = this.isNearThreat(280, 640);
-      this.player.play("knightJump", true);
-      this.audio.play("jump", 0.48);
-      this.bounceFeedback();
-    } else if (this.airHopAvailable) {
-      this.player.setVelocityY(-650);
-      this.airHopAvailable = false;
-      this.jumpIsPerfect = this.jumpIsPerfect || this.isNearThreat(250, 600);
-      this.audio.play("jump", 0.38);
-      this.bounceFeedback();
+  addPoint(pointer) {
+    const point = { x: Phaser.Math.Clamp(pointer.x, 35, 1245), y: Phaser.Math.Clamp(pointer.y, WORLD.boardTop + 18, WORLD.boardBottom - 18) };
+    const last = this.pathPoints[this.pathPoints.length - 1];
+    if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 10) {
+      this.pathPoints.push(point);
+      this.redrawPath();
     }
   }
 
-  isNearThreat(minX, maxX) {
-    return this.obstacles.some((obstacle) => obstacle.active && obstacle.x > minX && obstacle.x < maxX);
+  finishDrawing() {
+    this.drawing = false;
+    if (this.pathPoints.length < 2 || pathLength(this.pathPoints) < 140) {
+      this.clearPath();
+      this.showHint("DRAW A LONGER ROUTE", "#d85d72");
+      return;
+    }
+    const last = this.pathPoints[this.pathPoints.length - 1];
+    if (Math.hypot(last.x - WORLD.goal.x, last.y - WORLD.goal.y) > 125) {
+      this.showHint("FINISH ON THE EXIT BEACON", "#d85d72");
+      this.tweens.add({ targets: this.pathGraphic, alpha: 0.35, duration: 180, yoyo: true, repeat: 1 });
+      return;
+    }
+    this.metrics.pathLength = Math.round(pathLength(this.pathPoints));
+    this.routeIndex = 1;
+    this.simulating = true;
+    this.player.play("playerWalk");
+    this.hint.setText("ROUTE LOCKED — WATCH THE MAP").setColor("#75e5d2");
+    this.audio.play("lockSfx", 0.42);
   }
 
-  bounceFeedback() {
-    this.tweens.add({ targets: this.player, scaleX: 2.15, scaleY: 1.65, duration: 90, yoyo: true, ease: "Quad.easeOut" });
-  }
-
-  spawnPattern(index) {
-    const x = 1350;
-    const type = index % 5;
-    if (type === 0) {
-      this.spawnObstacle(x, WORLD.groundY - 30, "ground");
-      this.spawnCoinArc(x + 105, WORLD.groundY - 140, 3);
-    } else if (type === 1) {
-      this.spawnObstacle(x, WORLD.groundY - 30, "ground");
-      this.spawnObstacle(x + 185, WORLD.groundY - 120, "air");
-      this.spawnCoinArc(x + 70, WORLD.groundY - 155, 4);
-    } else if (type === 2) {
-      this.spawnObstacle(x, WORLD.groundY - 120, "air");
-      this.spawnCoinArc(x + 85, WORLD.groundY - 35, 5);
-    } else if (type === 3) {
-      this.spawnObstacle(x, WORLD.groundY - 30, "ground");
-      this.spawnObstacle(x + 245, WORLD.groundY - 30, "ground");
-      this.spawnCoinArc(x + 120, WORLD.groundY - 155, 4);
-    } else {
-      this.spawnObstacle(x, WORLD.groundY - 30, "ground");
-      this.spawnCoinArc(x + 100, WORLD.groundY - 100, 6);
+  redrawPath() {
+    this.pathShadow.clear();
+    this.pathGraphic.clear();
+    if (this.pathPoints.length < 1) return;
+    for (const [graphic, width, color, alpha] of [[this.pathShadow, 25, DRAW_SHADOW, 0.92], [this.pathGraphic, 13, DRAW_COLOR, 1]]) {
+      graphic.lineStyle(width, color, alpha);
+      graphic.beginPath();
+      graphic.moveTo(this.pathPoints[0].x, this.pathPoints[0].y);
+      for (let i = 1; i < this.pathPoints.length; i += 1) graphic.lineTo(this.pathPoints[i].x, this.pathPoints[i].y);
+      graphic.strokePath();
     }
   }
 
-  spawnObstacle(x, y, kind) {
-    const obstacle = this.physics.add.sprite(x, y, "slime", kind === "air" ? 1 : 0).setScale(kind === "air" ? 2 : 2.15).setDepth(10);
-    obstacle.kind = kind;
-    obstacle.passed = false;
-    obstacle.play("slimeIdle");
-    obstacle.body.setAllowGravity(false);
-    obstacle.body.setSize(24, 18).setOffset(4, 5);
-    this.obstacles.push(obstacle);
-  }
-
-  spawnCoinArc(startX, startY, count) {
-    for (let i = 0; i < count; i += 1) {
-      const coin = this.physics.add.sprite(startX + i * 42, startY - Math.sin((i / Math.max(1, count - 1)) * Math.PI) * 52, "coin", i % 12).setScale(1.8).setDepth(9);
-      coin.play("coinSpin");
-      coin.body.setAllowGravity(false);
-      coin.body.setSize(10, 12).setOffset(3, 2);
-      this.coins.push(coin);
-    }
+  clearPath() {
+    if (this.ended || this.simulating) return;
+    this.pathPoints = [];
+    this.redrawPath();
+    this.showHint("DRAW FROM START TO EXIT", "#f4e6b5");
   }
 
   update(_time, delta) {
     if (this.ended) return;
-    const dt = Math.min(40, delta) / 1000;
-    this.elapsed += delta;
-    this.metrics.distance += (this.speed * dt) / 10;
-    this.treeLayer.tilePositionX += this.speed * dt * 0.08;
-    this.spawnClock -= delta;
-    if (this.spawnClock <= 0) {
-      this.spawnPattern(this.spawnIndex);
-      this.spawnIndex += 1;
-      this.spawnClock = Math.max(470, 720 - this.chapterId * 25 - (this.spawnIndex % 3) * 35);
-    }
-
-    const playerBounds = this.player.getBounds();
+    const dt = Math.min(delta, 40) / 1000;
+    this.treeLayer.tilePositionX += 4 * dt;
+    this.goalRing.clear();
+    this.goalRing.lineStyle(3, 0x75e5d2, 0.65 + Math.sin(this.time.now / 280) * 0.12);
+    this.goalRing.strokeCircle(WORLD.goal.x, WORLD.goal.y, 44 + Math.sin(this.time.now / 280) * 4);
     for (const obstacle of this.obstacles) {
-      if (!obstacle.active) continue;
-      obstacle.x -= this.speed * dt;
-      if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, obstacle.getBounds())) {
-        this.endRun("defeat");
-        return;
+      if (obstacle.isSentinel) {
+        obstacle.y = obstacle.zone.baseY + Math.sin(this.time.now / obstacle.zone.period * Math.PI * 2) * obstacle.zone.range;
+        obstacle.zone.y = obstacle.y;
       }
-      if (!obstacle.passed && obstacle.x < WORLD.playerX - 42) {
-        obstacle.passed = true;
-        this.metrics.dodges += 1;
-        if (obstacle.x > WORLD.playerX - 95) this.nearMiss();
-        this.addScoreTick("DODGE +25", obstacle.x, obstacle.y - 30, "#9bc268");
-      }
-      if (obstacle.x < -100) obstacle.destroy();
     }
-    for (const coin of this.coins) {
-      if (!coin.active) continue;
-      coin.x -= this.speed * dt;
-      if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, coin.getBounds())) {
-        this.collectCoin(coin);
-      } else if (coin.x < -80) coin.destroy();
-    }
-    this.obstacles = this.obstacles.filter((item) => item.active);
-    this.coins = this.coins.filter((item) => item.active);
+    if (this.playerShadow) this.playerShadow.setPosition(this.player.x, this.player.y + 15);
+    if (!this.simulating) return;
 
-    const airborne = !this.player.body.blocked.down;
-    if (this.wasAirborne && !airborne) {
-      if (this.jumpIsPerfect) {
-        this.metrics.perfectJumps += 1;
-        this.addScoreTick("PERFECT +125", this.player.x, this.player.y - 65, "#f4d982");
-        this.comboBurst();
-      }
-      this.jumpIsPerfect = false;
-      this.airHopAvailable = false;
-      this.player.play("knightRun", true);
-    }
-    this.wasAirborne = airborne;
-    if (this.player.y > 760) {
-      this.endRun("defeat");
+    const target = this.pathPoints[this.routeIndex];
+    if (!target) { this.endRun("defeat", "PATH ENDED"); return; }
+    const dx = target.x - this.player.x;
+    const dy = target.y - this.player.y;
+    const distance = Math.hypot(dx, dy);
+    const step = 360 * dt;
+    const ratio = distance <= step ? 1 : step / distance;
+    const next = { x: this.player.x + dx * ratio, y: this.player.y + dy * ratio };
+    this.lastSafePosition = { x: this.player.x, y: this.player.y };
+    if (this.segmentHitsObstacle(this.lastSafePosition, next)) {
+      this.metrics.clean = false;
+      this.metrics.collision = true;
+      this.cameras.main.shake(180, 0.012);
+      this.playVfx("vfxImpact", this.player.x, this.player.y, 1.1);
+      this.audio.play("hitSfx", 0.65);
+      this.endRun("defeat", "PATH BLOCKED");
       return;
     }
-    this.updateHud();
-    if (this.objective.isComplete(this.metrics)) this.endRun("victory");
+    this.player.setPosition(next.x, next.y);
+    this.player.angle = Math.atan2(dy, dx) * 180 / Math.PI * 0.05;
+    this.collectNearbyGems();
+    if (distance <= step) this.routeIndex += 1;
+    this.progress.setRatio(this.routeIndex / Math.max(1, this.pathPoints.length - 1));
+    if (this.routeIndex >= this.pathPoints.length && Math.hypot(this.player.x - WORLD.goal.x, this.player.y - WORLD.goal.y) < 70) {
+      this.playVfx("vfxExplosion", WORLD.goal.x, WORLD.goal.y, 1.8);
+      this.endRun("victory", "BEACON REACHED");
+    }
   }
 
-  updateHud() {
-    this.distanceText.setText(formatDistance(this.metrics.distance));
-    this.coinText.setText(String(this.metrics.coins));
-    this.objectiveReadout.setText(this.objective.readout(this.metrics));
-    this.objectiveBar.setRatio(this.objective.progress(this.metrics));
+  segmentHitsObstacle(a, b) {
+    for (const obstacle of this.obstacles) {
+      if (!obstacle.active) continue;
+      const zone = obstacle.zone;
+      const distance = Math.hypot(b.x - a.x, b.y - a.y);
+      const steps = Math.max(1, Math.ceil(distance / 8));
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        const x = a.x + (b.x - a.x) * t;
+        const y = a.y + (b.y - a.y) * t;
+        if (x >= zone.x - zone.w / 2 - 18 && x <= zone.x + zone.w / 2 + 18 && y >= zone.y - zone.h / 2 - 18 && y <= zone.y + zone.h / 2 + 18) return true;
+      }
+    }
+    return false;
   }
 
-  collectCoin(coin) {
-    if (!coin.active) return;
-    this.metrics.coins += 1;
-    this.audio.play("coinSfx", 0.52);
-    this.tweens.add({ targets: coin, y: coin.y - 38, alpha: 0, scale: 2.7, duration: 220, onComplete: () => coin.destroy() });
-    this.addScoreTick("+1 RELIC", coin.x, coin.y - 30, "#f4d982");
-    try {
-      const burst = this.add.particles(coin.x, coin.y, "coin", { frame: [0, 4, 8], quantity: 8, lifespan: 350, speed: { min: 50, max: 130 }, scale: { start: 0.8, end: 0 }, emitting: false }).setDepth(18);
-      burst.explode(8, coin.x, coin.y);
-      this.time.delayedCall(450, () => burst.destroy());
-    } catch { /* optional flourish */ }
+  collectNearbyGems() {
+    for (const gem of this.gems) {
+      if (!gem.active || gem.collected || Math.hypot(gem.x - this.player.x, gem.y - this.player.y) > 38) continue;
+      gem.collected = true;
+      this.metrics.gems += 1;
+      this.metrics.collectedGems.push(gem.gemIndex);
+      this.relicText.setText(`${this.metrics.gems} SHARDS`);
+      this.audio.play("shardSfx", 0.52);
+      this.tweens.add({ targets: gem, y: gem.y - 34, alpha: 0, scale: 2.5, duration: 240, onComplete: () => gem.destroy() });
+      this.addScoreTick("+1 SHARD", gem.x, gem.y - 30, "#eab866");
+      this.playVfx("vfxExplosion", gem.x, gem.y, 0.65);
+    }
   }
 
-  nearMiss() {
-    this.cameras.main.flash(90, 225, 184, 90, false);
-    this.addScoreTick("CLOSE!", WORLD.playerX + 38, this.player.y - 90, "#f4d982");
-  }
-
-  comboBurst() {
-    this.cameras.main.shake(90, 0.002);
-    this.tweens.add({ targets: this.player, angle: -5, duration: 70, yoyo: true });
+  playVfx(key, x, y, scale) {
+    const fx = this.add.sprite(x, y, key, 0).setScale(scale).setDepth(18);
+    fx.once("animationcomplete", () => fx.destroy());
+    fx.play(key === "vfxImpact" ? "vfxImpact" : "vfxExplosion");
   }
 
   addScoreTick(text, x, y, color) {
     const tick = label(this, x, y, text, 15, color);
-    this.tweens.add({ targets: tick, y: y - 38, alpha: 0, duration: 650, ease: "Cubic.easeOut", onComplete: () => tick.destroy() });
+    this.tweens.add({ targets: tick, y: y - 36, alpha: 0, duration: 650, ease: "Cubic.easeOut", onComplete: () => tick.destroy() });
   }
 
-  pauseRun() {
+  showHint(text, color) {
+    if (this.hint) {
+      this.hint.setText(text).setColor(color);
+      this.tweens.killTweensOf(this.hint);
+      this.tweens.add({ targets: this.hint, alpha: { from: 1, to: 0.55 }, duration: 700, yoyo: true, repeat: 1 });
+    }
+  }
+
+  pauseRun(reason = "manual") {
     if (this.ended || this.scene.isActive("PauseScene")) return;
-    this.registry.set("activeChapter", this.chapterId);
+    this.pauseReason = reason;
     this.scene.pause();
-    this.scene.launch("PauseScene");
+    this.scene.launch("PauseScene", { platform: reason === "platform" });
   }
 
-  endRun(outcome) {
+  pauseFromPlatform() { if (this.scene.isActive() && !this.scene.isActive("PauseScene")) this.pauseRun("platform"); }
+
+  resumeFromPlatform() {
+    if (this.pauseReason === "platform" && this.scene.isPaused()) {
+      this.scene.resume();
+      if (this.scene.isActive("PauseScene")) this.scene.stop("PauseScene");
+    }
+  }
+
+  endRun(outcome, message) {
     if (this.ended) return;
     this.ended = true;
-    this.metrics.collision = outcome === "defeat";
-    const reward = calculateReward(outcome, this.metrics, this.chapterId);
+    const reward = calculateReward(outcome, this.metrics, this.levelId);
+    const score = scoreFor(this.metrics);
     storage.setCoins(storage.getCoins() + reward);
-    const score = Math.floor(this.metrics.distance) + this.metrics.coins * 50 + this.metrics.perfectJumps * 125;
     storage.setHighScore(Math.max(storage.getHighScore(), score));
-    if (outcome === "victory" && this.chapterId < 5) storage.setUnlockedChapter(this.chapterId + 1);
-    this.audio.play(outcome === "victory" ? "powerUp" : "hurt", 0.62);
-    const readout = this.objective.readout(this.metrics);
+    if (outcome === "victory" && this.levelId < 5) storage.setUnlockedLevel(this.levelId + 1);
+    this.audio.play(outcome === "victory" ? "successSfx" : "hitSfx", 0.62);
+    const snapshot = { level: this.levelId, x: this.lastSafePosition.x, y: this.lastSafePosition.y, metrics: { ...this.metrics } };
     this.audio.destroy();
-    this.scene.start("EndScene", {
-      outcome,
-      chapter: this.chapterId,
-      objectiveTitle: this.objective.title,
-      objectiveReadout: readout,
-      metrics: { ...this.metrics },
-      reward,
-    });
+    this.scene.start("EndScene", { outcome, level: this.levelId, message, metrics: { ...this.metrics }, reward, score, snapshot });
   }
 
   shutdown() {
     this.audio?.destroy();
+    this.input?.removeListener("pointerdown", this.onPointerDown);
+    this.input?.removeListener("pointermove", this.onPointerMove);
+    this.input?.removeListener("pointerup", this.onPointerUp);
     this.input?.keyboard?.removeAllListeners();
-    for (const item of [...this.obstacles, ...this.coins, ...this.decor]) item?.destroy?.();
   }
 }

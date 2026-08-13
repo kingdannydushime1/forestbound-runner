@@ -1,15 +1,27 @@
-# Level Plan
+# Path Drawer — Level Plan
 
-Forestbound Runner uses deterministic route templates selected by chapter and objective. Obstacles are spawned from a finite, tested pattern library rather than unconstrained random placement.
+Levels are fixed, hand-authored top-down boards. The board is designed first, then the asset plan supplies the correct visuals for each role.
 
-| Chapter | Theme | Speed | New pattern |
-|---:|---|---:|---|
-| 1 | Verdant Canopy | 320 | Single slime, coin arc |
-| 2 | Amber Ruins | 348 | Double slime, low coin trail |
-| 3 | Moonlit Hollow | 376 | High/low alternating route |
-| 4 | Ember Grove | 404 | Tight double waves |
-| 5 | Crown of Leaves | 432 | Mixed route rotation |
+| Level | Layout | Blockers | Extra rule | Shards |
+|---:|---|---|---|---:|
+| 1 — Lantern Clearing | wide three-gap board | stone blocks | learn start → exit | 3 |
+| 2 — Rootbound Crossing | S-shaped corridor | roots + stones | line must make two deliberate turns | 4 |
+| 3 — Mirror Marsh | split route | mirrored ruins | one safe route, one tempting dead end | 5 |
+| 4 — Clockwork Grove | crossing lanes | blockers + moving sentinel | time the release around sentinel | 5 |
+| 5 — Beacon Vault | compact mastery board | mixed blockers + sentinel | collect every shard for Perfect Map | 6 |
 
-Each route pattern respects a minimum 180 px landing gap, a maximum jumpable height of 120 px and a 480–720 ms spawn interval. Victory distance targets range from 850 m to 1450 m.
+## Geometry contract
 
-The release ships the five-chapter progression model; each session generates a deterministic pattern sequence from chapter and run seed, preserving solvability while keeping objectives varied.
+- Board: logical 1280×720.
+- Start and exit are always at least 140 px apart.
+- Every level has one verified safe polyline with a minimum 24 px clearance from blocker zones.
+- Visual decoration never becomes collision unless it has an explicit zone in level data.
+- Decorative props are placed after the gameplay route and never obscure the line of sight.
+
+## Acceptance tests per level
+
+- Valid direct route can be drawn from the start marker.
+- At least one alternate valid route exists where the design promises choice.
+- A route that intersects every blocker fails deterministically.
+- Shard pickup positions never overlap blocker hitboxes.
+- Exit radius is reachable and never hidden behind decoration.

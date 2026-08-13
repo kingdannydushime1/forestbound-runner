@@ -1,8 +1,8 @@
 {
-  "name": "forestbound-runner",
+  "name": "path-drawer",
   "version": "1.0.0",
   "private": true,
-  "description": "Forestbound Runner — an objective-driven fantasy runner built with Phaser 3.",
+  "description": "Path Drawer — a responsive route-drawing puzzle built with Phaser 3.",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -10,7 +10,7 @@ export class AudioService {
   startMusic() {
     if (this.music?.isPlaying) return;
     try {
-      this.music = this.scene.sound.add("music", { loop: true, volume: 0.22 });
+      this.music = this.scene.sound.add("music", { loop: true, volume: 0.18 });
       if (!this.muted) this.music.play();
     } catch {
       this.music = null;

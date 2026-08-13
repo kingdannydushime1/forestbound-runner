@@ -1,43 +1,54 @@
-# Forestbound Runner — Art Bible
+# Path Drawer — Art Bible
 
-## Direction
+## Hard provenance rule
 
-**Handcrafted 16-bit fantasy pixel art**, anchored by Anokolisa's Legacy Fantasy / High Forest pack from itch.io and supported by Brackeys' CC0 platformer pack. The visual promise is a premium adventure-game slice: rich parallax forest layers, warm gold highlights, expressive knight silhouette and readable threats.
+This art bible starts a new visual identity. No image, sprite, audio file, font or archive from `studio/reference-games/`, the supplied reference demos, Forestbound Runner, or any other local game may be used. Those projects are technical references only.
+
+## Named direction
+
+**Enchanted Cartographer — top-down 32×32 pixel-art storybook.** The board should look like a hand-painted adventure map made from compact, readable pixel tiles: moss-green ground, blue-violet shadow, warm parchment markers and cyan magical beacons. The camera is top-down and stationary so the player can plan a route.
 
 ## Palette
 
-- Night ink: `#101827` — UI panels and deepest shadows.
-- Forest teal: `#193b43` — distant foliage.
-- Leaf green: `#4f8b58` — gameplay midground.
-- Moss light: `#9bc268` — readable terrain accents.
-- Relic gold: `#e1b85a` — objective, coins and reward feedback.
-- Moon cream: `#fff6cf` — primary type and contrast.
-- Danger coral: `#d8665d` — collision and defeat only.
+- Map ink: `#17152b` — deepest shadow, route under-stroke and UI text shadow.
+- Night violet: `#2b2752` — panels and ruins.
+- Moss: `#54734b` — safe ground accents.
+- Meadow: `#8ca65b` — readable grass/foliage.
+- Parchment: `#f4e6b5` — labels and route core.
+- Beacon cyan: `#75e5d2` — exit and success only.
+- Relic amber: `#eab866` — shards and reward.
+- Failure crimson: `#d85d72` — collision and defeat only.
+
+## Scale and silhouettes
+
+- Base grid target: 32×32 pixels for environment and props.
+- Character target: 32–48 logical pixels tall, with a strong single-color silhouette and a readable facing direction.
+- Obstacle target: 48–96 logical pixels wide, opaque center and a documented hitbox inset.
+- Collectible target: 16–24 logical pixels, high contrast against ground.
+- Beacon target: 48–72 logical pixels with a distinctive cyan silhouette.
+- UI icons: 24–32 logical pixels, same pixel density as the chosen UI source.
+
+These are acceptance targets, not guessed source dimensions. Every downloaded file is measured before integration.
 
 ## Composition
 
-- Logical scene 1280×720 with nearest-neighbor filtering.
-- Background is the actual 480×272 forest plate scaled to fill, with the actual tree background layer repeated behind the playfield.
-- The runner stays near x=270; camera movement is communicated by layered motion and passing sprites, not by a disorienting camera.
-- Gameplay assets use large nearest-neighbor pixels and 3 px minimum silhouette contrast.
+- Use a tiled top-down ground, not a stretched platformer background.
+- Keep a calm empty route-reading margin around the board while filling the rest with coherent props.
+- Static props frame the play area; gameplay blockers are visually distinct from decoration.
+- The route under-stroke is always darker than the ground, and the route core is always lighter than the ground.
 
-## Silhouette rules
+## Source mixing rule
 
-- Player: knight, warm light armor, occupies 44×64 px.
-- Threats: green slime (soft, low), stump/root tile (wide, grounded), bee (high, airborne when added).
-- Collectibles: gold coin sprite, always offset from obstacle silhouettes.
-- UI: no gradients behind gameplay art; panels use a dark translucent tint and gold edge.
+A primary top-down environment/entity pack must define the pixel density, outline treatment and palette. A separate audio or VFX source is acceptable only when its license is clear and it is normalized to this direction. Assets with a different camera, perspective, pixel density or outline language are rejected; arbitrary tinting or scaling cannot hide a mismatch.
 
-## Chapter treatments
+## Required states
 
-| Chapter | Background treatment | Gameplay accent |
-|---|---|---|
-| Verdant Canopy | Green daytime forest | Moss green |
-| Amber Ruins | Warm overlay on forest plate | Amber gold |
-| Moonlit Hollow | Indigo tint and cool tree layer | Moon cream |
-| Ember Grove | Red foliage layer | Coral |
-| Crown of Leaves | Bright gold dawn | Gold |
+- Character: idle, walking/following, success, collision.
+- Beacon: idle glow and reached/success state.
+- Obstacles: idle/static plus moving-sentinel state if the chosen pack supplies it.
+- Shards: idle sparkle and collected burst.
+- UI: start marker, exit label, draw/clear/pause controls, victory, failure and ad affordances.
 
 ## Forbidden
 
-No procedural illustration, generated placeholder art, photo assets, mixed art styles, blurry upscaling or UI that replaces actual game art with emoji/shapes.
+No reference-game assets, no Forestbound assets, no photos, no AI-generated art, no procedural illustration replacing an asset, no stretched sprite sheets, no unverified atlas crops, no mixed perspective and no assets marked `VISUAL_PENDING` in the production build.

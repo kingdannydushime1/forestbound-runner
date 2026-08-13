@@ -17,7 +17,7 @@ export function panel(scene, x, y, width, height, alpha = 0.94) {
 
 export function label(scene, x, y, text, size = 18, color = COLORS.cream, origin = 0.5) {
   return scene.add.text(x, y, text, {
-    fontFamily: "Pixel Operator, Trebuchet MS, Arial, sans-serif",
+    fontFamily: "Adventurer, Trebuchet MS, Arial, sans-serif",
     fontSize: `${size}px`,
     color,
     fontStyle: "bold",

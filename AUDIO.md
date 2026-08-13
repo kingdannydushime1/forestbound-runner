@@ -1,10 +1,12 @@
-# Audio Map
+# Path Drawer — Audio Map
 
-- `time_for_adventure.mp3`: looping gameplay music at 0.22 volume.
-- `jump.wav`: jump and air-hop at 0.48.
-- `coin.wav`: relic collect at 0.55.
-- `hurt.wav`: collision at 0.62.
-- `power_up.wav`: objective completion and chapter unlock at 0.60.
-- `tap.wav`: menu, pause and button interaction at 0.38.
+No audio from a previous local game is used.
 
-Mute state is persisted in localStorage and checked before every sound call. The first user interaction unlocks audio in browsers. Pause silences gameplay playback without losing the mute preference.
+- `puzzle-pieces.ogg`: looping puzzle music from Abstraction/Tallbeard's CC-0 bundle, 44.1 kHz stereo.
+- `draw-select.wav`: route drawing begins.
+- `route-confirm.wav`: valid route locks.
+- `shard-collect.wav`: map shard collected.
+- `collision.wav`: route touches a blocker.
+- `beacon-success.wav`: beacon reached and victory.
+
+The five WAV files are selected from JDWasabi's 8-bit/16-bit SFX pack; the source page permits commercial game use and requests a credit. Music/SFX keys are loaded by `BootScene`, calls are guarded by `AudioService`, and browser autoplay restrictions never crash gameplay. Mute state is persistent.

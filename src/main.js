@@ -23,4 +23,4 @@ const config = {
   scene: [BootScene, MenuScene, GameScene, PauseScene, EndScene],
 };
 
-window.__forestboundGame = new Phaser.Game(config);
+window.__pathDrawerGame = new Phaser.Game(config);

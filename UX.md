@@ -1,39 +1,36 @@
-# Forestbound Runner — UX Spec
-
-## Global layout
-
-All scene positions derive from the 1280×720 logical layout. Phaser scales with FIT and CENTER_BOTH. The safe area is 40 px on every side; the HUD uses a single top row and the objective card sits below it without collision with the playfield.
+# Path Drawer — UX Contract
 
 ## Menu
 
-- Hero title: FORESTBOUND RUNNER.
-- One-line promise: “A new path. A new objective.”
-- Primary action: START RUN.
+- Title: PATH DRAWER.
+- Promise: “Draw the route. Dodge the dangers. Reach the beacon.”
+- Primary action: DRAW A PATH.
 - Secondary action: SOUND ON/OFF.
-- Chapter badge: current unlocked chapter and best score.
-- Background: actual forest plate and tree layer with slow parallax.
+- Current level, best score and relic count are visible.
+- Background uses only the new approved top-down art pack.
 
 ## Gameplay
 
-- Top-left: chapter and distance.
-- Top-center: objective label and progress bar.
-- Top-right: coins and pause button.
-- Center-left: player and upcoming route.
-- Bottom center: faint “SPACE / TAP TO JUMP” hint during first run only.
-- All buttons have visible pressed tint and a small tap SFX.
+- Top-left: level name and subtitle.
+- Top-center: one-line instruction/status and route progress.
+- Top-right: relic count, CLEAR and PAUSE.
+- Board: START marker, player, visible obstacle silhouettes, exit beacon, shards.
+- Pointer/touch begins only near the player; HUD controls never start a route.
+- Before release: CLEAR redraws. After release: route is locked and controls are paused except PAUSE.
 
 ## Pause
 
-- Darkened playfield remains visible.
-- Center card: PAUSED, RESUME, RESTART RUN, FOREST MAP.
-- Resume is the primary action and responds to P / Escape.
+- Dark overlay preserves the board context.
+- RESUME is the primary action and responds to P/Escape.
+- REDRAW restarts the current level; FOREST MAP returns to menu.
+- Platform pause opens the same overlay and resumes only when the platform resumes.
 
 ## End states
 
-- Victory: gold card, completed objective, coins earned, RUN AGAIN primary.
-- Game over: coral card, cause, distance, coins earned, RUN AGAIN primary, no blocking ad.
-- Every end screen has a visible FOREST MAP action.
+- Victory: beacon reached, shard count, path length, reward, DRAW AGAIN, FOREST MAP, optional DOUBLE RELICS rewarded button.
+- Failure: cause, shard count, reward, DRAW AGAIN, FOREST MAP, optional REVIVE rewarded button.
+- Retry is always available without watching an ad.
 
-## Accessibility
+## Responsive rules
 
-Text is 18 px minimum for body copy and 28 px for primary buttons at logical resolution. Gold and cream text sits on dark panels. Objective progress is written numerically in addition to the bar. Keyboard focus is not trapped inside canvas; equivalent keyboard shortcuts are documented in the menu.
+All positions come from the logical 1280×720 layout and Phaser FIT/CENTER_BOTH. The full board and controls remain visible at phone portrait, tablet portrait, desktop landscape and ultrawide sizes. No text-only shop or ad surface is used; ad buttons state both the ad action and the reward.
