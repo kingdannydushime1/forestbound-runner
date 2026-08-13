@@ -43,10 +43,6 @@ export class GameScene extends Phaser.Scene {
     this.background = this.add.image(640, 360, "forestBg").setDisplaySize(1280, 720).setTint(this.chapter.tint).setDepth(0);
     this.treeLayer = this.add.tileSprite(640, 395, 1280, 500, "treeBg").setTileScale(1.43).setAlpha(0.77).setDepth(1);
     this.add.rectangle(640, 360, 1280, 720, 0x101827, 0.13).setDepth(2);
-    for (const [x, y, scale, alpha] of [[90, 448, 0.25, 0.7], [820, 455, 0.3, 0.62], [1160, 435, 0.22, 0.68]]) {
-      const tree = this.add.image(x, y, "treeGreen").setScale(scale).setAlpha(alpha).setDepth(3);
-      this.decor.push(tree);
-    }
     for (const [x, y] of [[430, 170], [700, 250], [1010, 140], [1170, 300]]) {
       const firefly = this.add.sprite(x, y, "coin", 2).setScale(0.8).setAlpha(0.45).setDepth(3);
       this.tweens.add({ targets: firefly, y: y - 18, alpha: { from: 0.25, to: 0.8 }, duration: 1200 + (x % 3) * 280, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
@@ -61,7 +57,9 @@ export class GameScene extends Phaser.Scene {
 
   createAnimations() {
     if (!this.anims.exists("knightRun")) {
-      this.anims.create({ key: "knightRun", frames: this.anims.generateFrameNumbers("knight", { start: 0, end: 7 }), frameRate: 12, repeat: -1 });
+      // The source sheet is 8×8, but cells 6–7 in row 0 are empty padding.
+      // Keep the animation on the four verified non-empty running cells.
+      this.anims.create({ key: "knightRun", frames: this.anims.generateFrameNumbers("knight", { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
       this.anims.create({ key: "knightJump", frames: [{ key: "knight", frame: 16 }, { key: "knight", frame: 17 }], frameRate: 6, repeat: -1 });
       this.anims.create({ key: "slimeIdle", frames: this.anims.generateFrameNumbers("slime", { start: 0, end: 2 }), frameRate: 5, repeat: -1 });
       this.anims.create({ key: "coinSpin", frames: this.anims.generateFrameNumbers("coin", { start: 0, end: 11 }), frameRate: 14, repeat: -1 });

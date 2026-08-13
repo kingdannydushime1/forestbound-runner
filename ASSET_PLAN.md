@@ -4,8 +4,8 @@
 |---|---|---|---|---|---|
 | `Background.png` | Full forest sky/plate | PNG, 480×272 | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Critical |
 | `Trees/Background.png` | Parallax tree silhouette | PNG, 896×256 | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Critical |
-| `Trees/Green-Tree.png` | Midground tree decor | PNG sprite sheet | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Important |
-| `Assets/Tiles.png` | Ground/rock/stump tiles | PNG, 400×400 | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Critical |
+| `Trees/Green-Tree.png` | Source-pack tree atlas retained for future cropped decor; not loaded as a whole image | PNG, 1344×1200 | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Nice-to-have |
+| `Assets/Tiles.png` | Source-pack tile atlas retained for future cropped terrain; not loaded as a whole image | PNG, 400×400 | Anokolisa itch.io Legacy Fantasy | Free commercial use, credit included | Nice-to-have |
 | `sprites/knight.png` | Player animation source | PNG, 256×256 | Brackeys Platformer Bundle itch.io | CC0 | Critical |
 | `sprites/slime_green.png` | Ground obstacle | PNG, 96×72 | Brackeys Platformer Bundle itch.io | CC0 | Critical |
 | `sprites/coin.png` | Collectible relic | PNG, 192×16 | Brackeys Platformer Bundle itch.io | CC0 | Critical |

@@ -22,8 +22,6 @@ export class BootScene extends Phaser.Scene {
 
     this.load.image("forestBg", `${FOREST}/Background/Background.png`);
     this.load.image("treeBg", `${FOREST}/Trees/Background.png`);
-    this.load.image("treeGreen", `${FOREST}/Trees/Green-Tree.png`);
-    this.load.image("tiles", `${FOREST}/Assets/Tiles.png`);
     this.load.image("platforms", `${BRACKEYS}/sprites/platforms.png`);
     this.load.spritesheet("knight", `${BRACKEYS}/sprites/knight.png`, { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet("slime", `${BRACKEYS}/sprites/slime_green.png`, { frameWidth: 32, frameHeight: 24 });

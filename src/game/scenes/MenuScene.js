@@ -44,9 +44,7 @@ export class MenuScene extends Phaser.Scene {
     const bg = this.add.image(640, 360, "forestBg").setDisplaySize(1280, 720).setTint(0xc5e1ce).setDepth(0);
     const trees = this.add.tileSprite(640, 380, 1280, 480, "treeBg").setTileScale(1.42).setAlpha(0.78).setDepth(1);
     this.add.rectangle(640, 360, 1280, 720, 0x101827, 0.25).setDepth(2);
-    const heroTree = this.add.image(1055, 450, "treeGreen").setScale(0.34).setAlpha(0.82).setDepth(3);
     this.tweens.add({ targets: trees, tilePositionX: 896, duration: 26000, repeat: -1 });
-    this.tweens.add({ targets: heroTree, y: 442, duration: 2600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     this.add.image(640, 654, "platforms").setDisplaySize(1280, 90).setDepth(4).setAlpha(0.95);
     bg.setData("decor", true);
   }

@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/data.test.js",
+    "test": "node tests/data.test.js && node tests/assets.test.mjs",
     "typecheck": "node tests/syntax-check.mjs"
   },
   "dependencies": {
